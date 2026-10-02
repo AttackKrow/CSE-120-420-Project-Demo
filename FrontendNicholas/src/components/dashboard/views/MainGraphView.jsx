@@ -29,8 +29,16 @@ export function MainGraphView({backendData, isLoading}) {
       </div>
 
       {/* Bottom reserved space */}
-      <div className="h=64 p-4">
-        <div></div>
+      <div className="h=64 p-4 flex items-center justify-center">
+        <div className="text-sm font-medium">
+          {isLoading ? (
+            <span className="animate-pulse text-yellow-500">Loading data...</span>
+          ) : backendData ?(
+            <span className="text-green-500">Data received</span>
+          ) : (
+            <span className="text-red-500">No data available</span>
+          )}
+        </div>
       </div>
 
     </div>

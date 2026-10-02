@@ -3,7 +3,9 @@ from enum import Enum
 from app.adapters.adapter import Adapter
 from app.adapters.example_adapter import ExampleAdapter
 from app.adapters.postgres_edge_adapter import PostgresEdgeAdapter
-from fastapi import FastAPI
+from app.models.genealogy import AncestorsResponse, DescendantsResponse
+from typing import Annotated
+from fastapi import FastAPI, Query
 
 app = FastAPI(
     title="QuantumScape Genealogy API Demo",
@@ -34,11 +36,15 @@ async def health():
     return {"status": "healthy"}
 
 
-@app.get("/lots/{lot_uuid}/ancestors")
+@app.get(
+    "/lots/{lot_uuid}/ancestors",
+    response_model=AncestorsResponse,
+)
+
 async def get_ancestors(
     lot_uuid: str,
     backend: BackendName = BackendName.RECURSIVE_SQL,
-    max_depth: int = 20,
+    max_depth: Annotated[int, Query(ge=1, le=100)] = 20,
 ):
     adapter = adapters[backend]
 
@@ -52,11 +58,14 @@ async def get_ancestors(
     }
 
 
-@app.get("/lots/{lot_uuid}/descendants")
+@app.get(
+    "/lots/{lot_uuid}/descendants",
+    response_model=DescendantsResponse,
+)
 async def get_descendants(
     lot_uuid: str,
     backend: BackendName = BackendName.RECURSIVE_SQL,
-    max_depth: int = 20,
+    max_depth: Annotated[int, Query(ge=1, le=100)] = 20,
 ):
     adapter = adapters[backend]
 

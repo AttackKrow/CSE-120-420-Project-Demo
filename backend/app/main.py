@@ -1,11 +1,17 @@
+import logging
+import os
 from enum import Enum
 
 from app.adapters.adapter import Adapter
 from app.adapters.example_adapter import ExampleAdapter
+from app.adapters.neo4j_adapter import Neo4jAdapter
 from app.adapters.postgres_edge_adapter import PostgresEdgeAdapter
 from app.models.genealogy import AncestorsResponse, DescendantsResponse
 from typing import Annotated
+from dotenv import load_dotenv
 from fastapi import FastAPI, Query
+
+load_dotenv()
 
 app = FastAPI(
     title="QuantumScape Genealogy API Demo",
@@ -19,10 +25,18 @@ class BackendName(str, Enum):
     NEO4J = "neo4j"
 
 
+def make_neo4j_adapter() -> Adapter:
+    """Real Neo4j when NEO4J_URI is configured, otherwise the placeholder adapter."""
+    if os.environ.get("NEO4J_URI"):
+        return Neo4jAdapter()
+    logging.getLogger(__name__).warning("NEO4J_URI not set: neo4j backend uses ExampleAdapter")
+    return ExampleAdapter()
+
+
 adapters: dict[BackendName, Adapter] = {
     BackendName.RECURSIVE_SQL: PostgresEdgeAdapter(),
     BackendName.CLOSURE_TABLE: ExampleAdapter(),
-    BackendName.NEO4J: ExampleAdapter(),
+    BackendName.NEO4J: make_neo4j_adapter(),
 }
 
 

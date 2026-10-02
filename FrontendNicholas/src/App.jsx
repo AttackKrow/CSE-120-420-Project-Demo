@@ -3,8 +3,13 @@ import { useState, useEffect } from "react";
 import { NavBar } from "@/components/dashboard/NavBar";
 import { ThemeProvider } from "@/components/theme-provider";
 import { MainGraphView } from "@/components/dashboard/views/MainGraphView";
+import { LoginPageView } from "@/components/dashboard/views/LoginPageView";
 
 export default function App() {
+
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [currentUser, setCurrentUser] = useState("");
+
   const [activeTab, setActiveTab] = useState("Main View");
 
   /* FastAPI integration boilerplate */
@@ -13,6 +18,8 @@ export default function App() {
   const[isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    if (!isAuthenticated) return;
+
     const fetchBackendData = async () => {
       try {
         /* /api/data currently proxies to http://localhost:8000/api/data */
@@ -30,9 +37,20 @@ export default function App() {
     };
 
     fetchBackendData();
-  }, []); 
+  }, [isAuthenticated]); 
   
-  
+  if (!isAuthenticated) {
+    return (
+      <ThemeProvider defaultTheme="light" storageKey="vite-ui-theme">
+        <LoginPageView 
+          onLogin={(username) => {
+            setCurrentUser(username);
+            setIsAuthenticated(true);
+          }} 
+        />
+      </ThemeProvider>
+    );
+  }
 
   return (
     <ThemeProvider defaultTheme="system" storageKey="vite-ui-theme">

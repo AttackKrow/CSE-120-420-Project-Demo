@@ -4,7 +4,7 @@ import { SidebarViewSelector } from "@/components/ui/custom/SidebarViewSelector"
 import { SidebarContextDisplay } from "@/components/ui/custom/SidebarContextDisplay";
 
 
-export function MainGraphView() {
+export function MainGraphView({backendData, isLoading}) {
 
   const [selectedItem, setSelectedItem] = useState(null);
 
@@ -30,7 +30,7 @@ export function MainGraphView() {
 
       {/* Bottom reserved space */}
       <div className="h=64 p-4">
-        <div>reserved space</div>
+        <div></div>
       </div>
 
     </div>

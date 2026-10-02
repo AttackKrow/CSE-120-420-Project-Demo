@@ -7,7 +7,7 @@ import { MainGraphView } from "@/components/dashboard/views/MainGraphView";
 export default function App() {
   const [activeTab, setActiveTab] = useState("Main View");
 
-  /* FastAPI integration boilerplate
+  /* FastAPI integration boilerplate */
 
   const[backendData, setBackendData] = useState(null);
   const[isLoading, setIsLoading] = useState(true);
@@ -15,7 +15,7 @@ export default function App() {
   useEffect(() => {
     const fetchBackendData = async () => {
       try {
-        const response = await fetch('url');
+        const response = await fetch('/api/data');
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
@@ -31,7 +31,7 @@ export default function App() {
     fetchBackendData();
   }, []); 
   
-  */
+  
 
   return (
     <ThemeProvider defaultTheme="system" storageKey="vite-ui-theme">
@@ -41,7 +41,7 @@ export default function App() {
 
         <main className="flex-1 flex flex-col p-6">
           {activeTab === "Main View" && (
-            <MainGraphView /* data={backendData} isLoading={isLoading}*/ />
+            <MainGraphView data={backendData} isLoading={isLoading} />
             )}
         </main>
 

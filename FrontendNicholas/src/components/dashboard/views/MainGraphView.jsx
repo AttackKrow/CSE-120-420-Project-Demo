@@ -28,7 +28,7 @@ export function MainGraphView({backendData, isLoading}) {
 
       </div>
 
-      {/* Bottom reserved space */}
+      {/* Bottom reserved space, currently data reception indicators */}
       <div className="h=64 p-4 flex items-center justify-center">
         <div className="text-sm font-medium">
           {isLoading ? (

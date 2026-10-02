@@ -1,9 +1,9 @@
 from enum import Enum
 
+from app.adapters.adapter import Adapter
+from app.adapters.example_adapter import ExampleAdapter
+from app.adapters.postgres_edge_adapter import PostgresEdgeAdapter
 from fastapi import FastAPI
-
-from backend.app.adapters.adapter import Adapter
-from backend.app.adapters.example_adapter import ExampleAdapter
 
 app = FastAPI(
     title="QuantumScape Genealogy API Demo",
@@ -18,7 +18,7 @@ class BackendName(str, Enum):
 
 
 adapters: dict[BackendName, Adapter] = {
-    BackendName.RECURSIVE_SQL: ExampleAdapter(),
+    BackendName.RECURSIVE_SQL: PostgresEdgeAdapter(),
     BackendName.CLOSURE_TABLE: ExampleAdapter(),
     BackendName.NEO4J: ExampleAdapter(),
 }
@@ -34,33 +34,37 @@ async def health():
     return {"status": "healthy"}
 
 
-@app.get("/units/{unit_id}/ancestors")
+@app.get("/lots/{lot_uuid}/ancestors")
 async def get_ancestors(
-    unit_id: str,
+    lot_uuid: str,
     backend: BackendName = BackendName.RECURSIVE_SQL,
     max_depth: int = 20,
 ):
     adapter = adapters[backend]
 
     return {
-        "unit_id": unit_id,
-        "backend": backend.value,
+        "lot_uuid": lot_uuid,
         "max_depth": max_depth,
-        "ancestors": await adapter.get_ancestors(unit_id, max_depth),
+        "ancestors": await adapter.get_ancestors(
+            lot_uuid,
+            max_depth,
+        ),
     }
 
 
-@app.get("/units/{unit_id}/predecessors")
-async def get_predecessors(
-    unit_id: str,
+@app.get("/lots/{lot_uuid}/descendants")
+async def get_descendants(
+    lot_uuid: str,
     backend: BackendName = BackendName.RECURSIVE_SQL,
     max_depth: int = 20,
 ):
     adapter = adapters[backend]
 
     return {
-        "unit_id": unit_id,
-        "backend": backend.value,
+        "lot_uuid": lot_uuid,
         "max_depth": max_depth,
-        "predecessors": await adapter.get_predecessors(unit_id, max_depth),
+        "descendants": await adapter.get_descendants(
+            lot_uuid,
+            max_depth,
+        ),
     }

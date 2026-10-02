@@ -15,6 +15,7 @@ export default function App() {
   useEffect(() => {
     const fetchBackendData = async () => {
       try {
+        /* /api/data currently proxies to http://localhost:8000/api/data */
         const response = await fetch('/api/data');
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);

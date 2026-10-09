@@ -73,3 +73,25 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_genealogy_edge_identity
         segment_uuid,
         begin_ts
     ) NULLS NOT DISTINCT;
+
+CREATE TABLE IF NOT EXISTS genealogy_closure (
+    ancestor_uuid TEXT NOT NULL,
+    descendent_uuid TEXT NOT NULL,
+    distance INTEGER NOT NULL CHECK (distance >= 1),
+    PRIMARY KEY (ancestor_uuid, descendent_uuid),
+    CHECK (ancestor_uuid <> descendent_uuid)
+);
+
+CREATE INDEX IF NOT EXISTS idx_genealogy_closure_descendent
+    ON genealogy_closure (
+        descendent_uuid,
+        distance,
+        ancestor_uuid
+    );
+
+CREATE INDEX IF NOT EXISTS idx_genealogy_closure_ancestor_distance
+    ON genealogy_closure (
+        ancestor_uuid,
+        distance,
+        descendent_uuid
+    );

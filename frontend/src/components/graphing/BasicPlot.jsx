@@ -5,6 +5,9 @@ import ReactFlow, {
   useNodesState,
   useEdgesState,
   MarkerType,
+  BaseEdge,
+  EdgeLabelRenderer,
+  getSmoothStepPath,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 import dagre from 'dagre';
@@ -43,6 +46,68 @@ const getLayoutedElements = (nodes, edges, direction = 'LR') => {
 
   return { nodes: layoutedNodes, edges };
 };
+
+const CustomEventEdge = ({
+  sourceX,
+  sourceY,
+  targetX,
+  targetY,
+  sourcePosition,
+  targetPosition,
+  style = {},
+  markerEnd,
+  data,
+}) => {
+  const [edgePath] = getSmoothStepPath({
+    sourceX,
+    sourceY,
+    sourcePosition,
+    targetX,
+    targetY,
+    targetPosition,
+  });
+
+  // Position the label exactly in the middle of the horizontal branch 
+  // leading into the target node (based on ranksep: 350)
+  const labelX = targetX - 175;
+  const labelY = targetY;
+
+  return (
+    <>
+      <BaseEdge path={edgePath} markerEnd={markerEnd} style={style} />
+      {data.showLabel && (
+        <EdgeLabelRenderer>
+          <div
+            style={{
+              position: 'absolute',
+              transform: `translate(-50%, -50%) translate(${labelX}px,${labelY}px)`,
+              background: '#f8fafc',
+              padding: '6px 10px',
+              borderRadius: '6px',
+              border: `1px solid ${style.stroke}`, // Match border to edge color
+              fontSize: '10px',
+              fontWeight: 700,
+              color: '#333',
+              pointerEvents: 'all',
+              lineHeight: '1.5',
+              whiteSpace: 'nowrap',
+              boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+            }}
+            className="nodrag nopan"
+          >
+            <div>Seg ID: {data.segment_uuid}</div>
+            <div>Equipment: {data.equipment_path}</div>
+            <div>Operator: {data.operator || 'None'}</div>
+            <div>Location: {data.location_type}</div>
+          </div>
+        </EdgeLabelRenderer>
+      )}
+    </>
+  );
+};
+
+// Register the custom edge type mapping
+const edgeTypes = { custom: CustomEventEdge };
 
 export default function LotHistoryDAG() {
   // Moved states inside the component
@@ -134,15 +199,14 @@ export default function LotHistoryDAG() {
         id: `edge-${e.id}`,
         source: sourceId,
         target: targetId,
-        type: 'smoothstep',
-        label: (
-          <>
-            <tspan x="0" dy="-1.2em">Seg ID: {e.segment_uuid}</tspan>
-            <tspan x="0" dy="1.2em">Equipment: {e.equipment_path}</tspan>
-            <tspan x="0" dy="1.2em">Operator: {e.operator || 'None'}</tspan>
-            <tspan x="0" dy="1.2em">Location: {e.location_type}</tspan>
-          </>
-        ),
+        type: 'custom',
+        data: {
+          showLabel: true, 
+          segment_uuid: e.segment_uuid,
+          equipment_path: e.equipment_path,
+          operator: e.operator,
+          location_type: e.location_type,
+        },
         labelStyle: { fill: '#333', fontWeight: 700, fontSize: 11 },
         style: { stroke: edgeColor, strokeWidth: 2 },
         markerEnd: { type: MarkerType.ArrowClosed, color: edgeColor },
@@ -201,6 +265,7 @@ export default function LotHistoryDAG() {
           <ReactFlow
             nodes={nodes}
             edges={edges}
+            edgeTypes={edgeTypes}
             onNodesChange={onNodesChange}
             onEdgesChange={onEdgesChange}
             onInit={setRfInstance} 

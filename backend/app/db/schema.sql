@@ -20,7 +20,7 @@ CREATE TABLE IF NOT EXISTS genealogy_edges (
     location TEXT NOT NULL,
     location_type TEXT NOT NULL,
     equipment_path TEXT NOT NULL,
-    operator TEXT NOT NULL,
+    operator TEXT,
     work_order_id TEXT,
     disposition TEXT,
     disposition_codes JSONB,

@@ -29,7 +29,7 @@ export function MainGraphView({backendData, isLoading}) {
       </div>
 
       {/* Bottom reserved space, currently data reception indicators */}
-      <div className="h=64 p-4 flex items-center justify-center">
+      <div className="h-8 p-4 flex items-center justify-center">
         <div className="text-sm font-medium">
           {isLoading ? (
             <span className="animate-pulse text-yellow-500">Loading data...</span>

@@ -1,21 +1,69 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import Plot from 'react-plotly.js';
+import React, { useState, useEffect, useCallback } from 'react';
+import ReactFlow, {
+  Background,
+  Controls,
+  useNodesState,
+  useEdgesState,
+  MarkerType,
+} from 'reactflow';
+import 'reactflow/dist/style.css';
+import dagre from 'dagre';
 
-export default function LotHistorySankey() {
-  const [searchLot, setSearchLot] = useState('');
-  const [events, setEvents] = useState([]);
+const nodeWidth = 200;
+const nodeHeight = 60;
+
+// Dagre layout engine configuration
+const getLayoutedElements = (nodes, edges, direction = 'LR') => {
+  const dagreGraph = new dagre.graphlib.Graph();
+  dagreGraph.setDefaultEdgeLabel(() => ({}));
+  dagreGraph.setGraph({ rankdir: direction, ranksep: 100, nodesep: 50 });
+
+  nodes.forEach((node) => {
+    dagreGraph.setNode(node.id, { width: nodeWidth, height: nodeHeight });
+  });
+
+  edges.forEach((edge) => {
+    dagreGraph.setEdge(edge.source, edge.target);
+  });
+
+  dagre.layout(dagreGraph);
+
+  const layoutedNodes = nodes.map((node) => {
+    const nodeWithPosition = dagreGraph.node(node.id);
+    return {
+      ...node,
+      targetPosition: direction === 'LR' ? 'left' : 'top',
+      sourcePosition: direction === 'LR' ? 'right' : 'bottom',
+      position: {
+        x: nodeWithPosition.x - nodeWidth / 2,
+        y: nodeWithPosition.y - nodeHeight / 2,
+      },
+    };
+  });
+
+  return { nodes: layoutedNodes, edges };
+};
+
+export default function LotHistoryDAG() {
+  // Moved states inside the component
+  const [searchLot, setSearchLot] = useState('CT000000');
   const [loading, setLoading] = useState(false);
+  const [nodes, setNodes, onNodesChange] = useNodesState([]);
+  const [edges, setEdges, onEdgesChange] = useEdgesState([]);
+  const [rfInstance, setRfInstance] = useState(null); 
+  const [rawEvents, setRawEvents] = useState([]); 
 
-  // Fetch data from the Python backend
   useEffect(() => {
     if (!searchLot) return;
-    
+
     const fetchHistory = async () => {
       setLoading(true);
       try {
-        const response = await fetch(`http://127.0.0.1:8000/api/history/${searchLot}`);
+        const response = await fetch(`http://10.0.0.177:8000/api/history/${searchLot}`);
         const data = await response.json();
-        setEvents(data);
+        setRawEvents(data);
+        
+        buildGraph(data);
       } catch (error) {
         console.error("Failed to fetch lot history:", error);
       } finally {
@@ -26,123 +74,137 @@ export default function LotHistorySankey() {
     fetchHistory();
   }, [searchLot]);
 
-  const { nodes, links } = useMemo(() => {
-    if (events.length === 0) return { nodes: [], links: [] };
+  const buildGraph = useCallback((events) => {
+    if (events.length === 0) {
+      setNodes([]);
+      setEdges([]);
+      return;
+    }
 
-    const nodeMap = new Map();
-    const addNode = (uuid, name, seq, status) => {
-      if (!uuid) return;
-      if (!nodeMap.has(uuid)) {
-        nodeMap.set(uuid, { label: `${name} (Seq ${seq}) [${status || 'ST_1'}]` });
+    const initialNodes = [];
+    const initialEdges = [];
+    const nodeSet = new Set();
+
+    const addNode = (id, labelText, bgColor, textColor = 'black') => {
+      if (!nodeSet.has(id)) {
+        nodeSet.add(id);
+        initialNodes.push({
+          id,
+          data: { label: labelText },
+          style: {
+            background: bgColor,
+            color: textColor,
+            border: '1px solid #222',
+            borderRadius: '5px',
+            fontSize: '12px',
+            fontWeight: 'bold',
+            width: nodeWidth,
+          },
+        });
       }
     };
 
-    events.forEach(e => {
-      if (e.in_lot_uuid) addNode(e.in_lot_uuid, e.in_lot_name, e.in_lot_sequence, e.in_lot_status);
-      if (e.out_lot_uuid) addNode(e.out_lot_uuid, e.out_lot_name, e.out_lot_sequence, e.out_lot_status);
-    });
+    events.forEach((e) => {
+      let sourceId = e.in_lot_uuid;
+      let targetId = e.out_lot_uuid;
 
-    const nodeList = Array.from(nodeMap.keys());
-    const nodeLabels = nodeList.map(uuid => nodeMap.get(uuid).label);
-    const sankeyLinks = { source: [], target: [], value: [], label: [], color: [] }; // Added color array
-
-    events.forEach(e => {
-      let sourceIdx = nodeList.indexOf(e.in_lot_uuid);
-      let targetIdx = nodeList.indexOf(e.out_lot_uuid);
-      let linkValue = e.qty_in || 1;
-      
-      // Default link color (fallback)
-      let linkColor = 'rgba(200, 200, 200, 0.4)'; 
-
-      if (e.in_lot_uuid === null) {
-        nodeList.push(`creation-${e.id}`);
-        nodeLabels.push(`Creation (${e.segment_name})`);
-        sourceIdx = nodeList.length - 1;
-        linkValue = 5;
-        linkColor = 'rgba(139, 92, 246, 0.5)'; // Purple for Creation
-      } else if (e.out_lot_uuid === null) {
-         nodeList.push(`disposal-${e.id}`);
-         nodeLabels.push(`Disposal (${e.segment_name})`);
-         targetIdx = nodeList.length - 1;
-         linkColor = 'rgba(239, 68, 68, 0.5)'; // Red for Disposal
+      // 1. Generate Nodes
+      if (sourceId) {
+        addNode(sourceId, `${e.in_lot_name} (Seq ${e.in_lot_sequence})`, '#f8fafc'); // Default white
       } else {
-         // Color logic based on lot names
-         if (e.in_lot_name === e.out_lot_name) {
-             // Process with same in and out names (Sequence Bump)
-             linkColor = 'rgba(148, 163, 184, 0.4)'; // Gray
-         } else if (e.in_lot_name !== searchLot && e.out_lot_name === searchLot) {
-             // Input from a different lot merging into this lot
-             linkColor = 'rgba(16, 185, 129, 0.5)'; // Green
-         } else if (e.in_lot_name === searchLot && e.out_lot_name !== searchLot) {
-             // Output splitting off to a different lot name
-             linkColor = 'rgba(249, 115, 22, 0.5)'; // Orange
-         }
+        sourceId = `creation-${e.id}`;
+        addNode(sourceId, `Creation (${e.segment_name})`, '#d8b4fe'); // Purple
       }
 
-      if (sourceIdx !== -1 && targetIdx !== -1) {
-        sankeyLinks.source.push(sourceIdx);
-        sankeyLinks.target.push(targetIdx);
-        sankeyLinks.value.push(linkValue);
-        sankeyLinks.label.push(e.segment_name);
-        sankeyLinks.color.push(linkColor); // Push the calculated color
+      if (targetId) {
+        addNode(targetId, `${e.out_lot_name} (Seq ${e.out_lot_sequence})`, '#f8fafc'); 
+      } else {
+        targetId = `disposal-${e.id}`;
+        addNode(targetId, `Disposal (${e.segment_name})`, '#fca5a5'); // Red
       }
+
+      // 2. Generate Edges with Color Logic
+      let edgeColor = '#94a3b8'; // Default gray for sequence bumps
+      if (e.in_lot_name && e.out_lot_name) {
+        if (e.in_lot_name !== searchLot && e.out_lot_name === searchLot) edgeColor = '#10b981'; // Green for incoming merges
+        if (e.in_lot_name === searchLot && e.out_lot_name !== searchLot) edgeColor = '#f97316'; // Orange for outgoing splits
+      }
+
+      initialEdges.push({
+        id: `edge-${e.id}`,
+        source: sourceId,
+        target: targetId,
+        label: e.segment_name,
+        labelStyle: { fill: '#333', fontWeight: 700, fontSize: 11 },
+        style: { stroke: edgeColor, strokeWidth: 2 },
+        markerEnd: { type: MarkerType.ArrowClosed, color: edgeColor },
+        animated: edgeColor !== '#94a3b8', // Animate transformation events
+      });
     });
 
-    return { nodes: nodeLabels, links: sankeyLinks };
-  }, [events]);
+    // 3. Apply Auto-Layout
+    const { nodes: layoutedNodes, edges: layoutedEdges } = getLayoutedElements(
+      initialNodes,
+      initialEdges
+    );
+
+    setNodes(layoutedNodes);
+    setEdges(layoutedEdges);
+  }, [searchLot]); // Removed rfInstance from dependencies if it was there to prevent loop
+
+  // Moved handleResetLayout outside of buildGraph
+  const handleResetLayout = () => {
+    // 1. Snap nodes back to their original calculated positions
+    if (rawEvents.length > 0) {
+      buildGraph(rawEvents);
+    }
+    
+    // 2. Wait for React to render the snapped positions before moving the camera
+    if (rfInstance) {
+      setTimeout(() => {
+        rfInstance.fitView({ duration: 800, padding: 0.1 });
+      }, 50); // A 50ms delay is plenty of time for the DOM to update
+    }
+  };
 
   return (
-    <div className="flex flex-col w-full max-w-6xl mx-auto p-4 space-y-4">
+    // Removed max-w-6xl, added h-full to make the outer container fill the parent
+    <div className="flex flex-col w-full h-full p-4 space-y-4">
       <div className="flex w-full space-x-4 mb-2">
         <input
           type="text"
           value={searchLot}
-          onChange={(e) => {
-            const sanitizedValue = e.target.value.replace(/[^a-zA-Z0-9_-]/g, '');
-            setSearchLot(sanitizedValue);
-          }
-        }
+          onChange={(e) => setSearchLot(e.target.value.replace(/[^a-zA-Z0-9]/g, ''))}
           placeholder="Enter Lot Name..."
           className="border border-gray-300 p-2 rounded w-64 shadow-sm"
         />
+        <button 
+          onClick={handleResetLayout}
+          className="px-4 py-2 bg-blue-600 text-white rounded shadow-sm hover:bg-blue-700 transition-colors"
+        >
+          Reset Layout
+        </button>
+        {loading && <span className="flex items-center text-sm text-gray-500">Loading...</span>}
       </div>
 
-      <div className="bg-white border rounded shadow-sm p-4 w-full h-[600px]">
+      {/* Replaced h-[600px] with flex-1 and min-h-0 to dynamically fill remaining vertical space */}
+      <div className="bg-white border rounded shadow-sm w-full flex-1 min-h-[500px]">
         {nodes.length > 0 ? (
-          <Plot
-            data={[
-                {
-                  type: 'sankey',
-                  orientation: 'h',
-                  node: {
-                    pad: 15,
-                    thickness: 30,
-                    line: { color: 'black', width: 0.5 },
-                    label: nodes,
-                  },
-                  link: {
-                    source: links.source,
-                    target: links.target,
-                    value: links.value,
-                    label: links.label,
-                    color: links.color,
-                  },
-                },
-              ]}
-            layout={{ 
-              title: `Genealogy Stream: ${searchLot}`, 
-              font: { size: 11 },
-              margin: { t: 40, l: 20, r: 20, b: 20 }
-            }}
-            config={{
-              scrollZoom: true,
-            }}
-            useResizeHandler={true}
-            style={{ width: '100%', height: '100%' }}
-          />
+          <ReactFlow
+            nodes={nodes}
+            edges={edges}
+            onNodesChange={onNodesChange}
+            onEdgesChange={onEdgesChange}
+            onInit={setRfInstance} 
+            fitView
+            attributionPosition="bottom-right"
+          >
+            <Background color="#ccc" gap={16} />
+            <Controls />
+          </ReactFlow>
         ) : (
           <div className="flex items-center justify-center h-full text-gray-500">
-            No history found for this lot.
+            {loading ? 'Fetching data...' : 'No history found for this lot.'}
           </div>
         )}
       </div>

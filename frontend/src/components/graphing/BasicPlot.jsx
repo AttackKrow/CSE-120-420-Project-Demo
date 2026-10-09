@@ -16,7 +16,7 @@ const nodeHeight = 60;
 const getLayoutedElements = (nodes, edges, direction = 'LR') => {
   const dagreGraph = new dagre.graphlib.Graph();
   dagreGraph.setDefaultEdgeLabel(() => ({}));
-  dagreGraph.setGraph({ rankdir: direction, ranksep: 100, nodesep: 50 });
+  dagreGraph.setGraph({ rankdir: direction, ranksep: 350, nodesep: 100 });
 
   nodes.forEach((node) => {
     dagreGraph.setNode(node.id, { width: nodeWidth, height: nodeHeight });
@@ -113,14 +113,14 @@ export default function LotHistoryDAG() {
         addNode(sourceId, `${e.in_lot_name} (Seq ${e.in_lot_sequence})`, '#f8fafc'); // Default white
       } else {
         sourceId = `creation-${e.id}`;
-        addNode(sourceId, `Creation (${e.segment_name})`, '#d8b4fe'); // Purple
+        addNode(sourceId, `Creation (${e.out_lot_name})`, '#d8b4fe'); // Purple
       }
 
       if (targetId) {
         addNode(targetId, `${e.out_lot_name} (Seq ${e.out_lot_sequence})`, '#f8fafc'); 
       } else {
         targetId = `disposal-${e.id}`;
-        addNode(targetId, `Disposal (${e.segment_name})`, '#fca5a5'); // Red
+        addNode(targetId, `Disposal (${e.out_lot_name})`, '#fca5a5'); // Red
       }
 
       // 2. Generate Edges with Color Logic
@@ -134,7 +134,15 @@ export default function LotHistoryDAG() {
         id: `edge-${e.id}`,
         source: sourceId,
         target: targetId,
-        label: e.segment_name,
+        type: 'smoothstep',
+        label: (
+          <>
+            <tspan x="0" dy="-1.2em">Seg ID: {e.segment_uuid}</tspan>
+            <tspan x="0" dy="1.2em">Equipment: {e.equipment_path}</tspan>
+            <tspan x="0" dy="1.2em">Operator: {e.operator || 'None'}</tspan>
+            <tspan x="0" dy="1.2em">Location: {e.location_type}</tspan>
+          </>
+        ),
         labelStyle: { fill: '#333', fontWeight: 700, fontSize: 11 },
         style: { stroke: edgeColor, strokeWidth: 2 },
         markerEnd: { type: MarkerType.ArrowClosed, color: edgeColor },

@@ -90,3 +90,33 @@ Then rerun:
 ```powershell
 uv run python -m loaders.load_closure
 ```
+
+## Neo4j Setup
+
+1. Install [Neo4j Desktop](https://neo4j.com/download/), create a local instance, set its password, and start it.
+
+2. Generate the data into `out/smoke` (and `out/official`) as in steps 2–3 of the PostgreSQL setup above.
+
+3. Add the Neo4j connection settings to `backend/.env` (git-ignored):
+
+   ```properties
+   NEO4J_URI=neo4j://127.0.0.1:7687
+   NEO4J_USERNAME=neo4j
+   NEO4J_PASSWORD=YOUR_PASSWORD
+   NEO4J_DATABASE=neo4j
+   ```
+
+4. Load the generated base events into Neo4j:
+
+   ```powershell
+   # Loads out/smoke/base by default
+   uv run python -m loaders.load_neo4j
+   ```
+
+   To load the official dataset:
+
+   ```powershell
+   uv run python -m loaders.load_neo4j --dataset official
+   ```
+
+The Neo4j loader reads the same files as the edge loader and removes duplicates the same way, so both databases hold the same genealogy. Each lot state becomes a `Lot` node, carrying the details of the event that produced it, and each input-to-output pair becomes a `USED_IN` relationship. Neo4j must be empty before loading; add `--wipe` to delete everything in it first.

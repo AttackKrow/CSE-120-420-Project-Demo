@@ -1,13 +1,14 @@
 import logging
 import os
 from enum import Enum
+from typing import Annotated
 
 from app.adapters.adapter import Adapter
 from app.adapters.example_adapter import ExampleAdapter
 from app.adapters.neo4j_adapter import Neo4jAdapter
+from app.adapters.postgres_closure_adapter import PostgresClosureAdapter
 from app.adapters.postgres_edge_adapter import PostgresEdgeAdapter
 from app.models.genealogy import AncestorsResponse, DescendantsResponse
-from typing import Annotated
 from dotenv import load_dotenv
 from fastapi import FastAPI, Query
 
@@ -35,7 +36,7 @@ def make_neo4j_adapter() -> Adapter:
 
 adapters: dict[BackendName, Adapter] = {
     BackendName.RECURSIVE_SQL: PostgresEdgeAdapter(),
-    BackendName.CLOSURE_TABLE: ExampleAdapter(),
+    BackendName.CLOSURE_TABLE: PostgresClosureAdapter(),
     BackendName.NEO4J: make_neo4j_adapter(),
 }
 

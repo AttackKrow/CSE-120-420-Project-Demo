@@ -260,7 +260,7 @@ export default function LotHistoryDAG() {
       </div>
 
       {/* Replaced h-[600px] with flex-1 and min-h-0 to dynamically fill remaining vertical space */}
-      <div className="bg-white border rounded shadow-sm w-full flex-1 min-h-[500px]">
+      <div className="bg-white border rounded shadow-sm w-full flex-1 min-h-125">
         {nodes.length > 0 ? (
           <ReactFlow
             nodes={nodes}

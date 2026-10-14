@@ -12,6 +12,10 @@ from app.models.genealogy import AncestorsResponse, DescendantsResponse
 from dotenv import load_dotenv
 from fastapi import FastAPI, Query
 
+from app.db.session import get_session
+from fastapi import Depends
+from sqlmodel.ext.asyncio.session import AsyncSession
+
 load_dotenv()
 
 app = FastAPI(
@@ -60,6 +64,7 @@ async def get_ancestors(
     lot_uuid: str,
     backend: BackendName = BackendName.RECURSIVE_SQL,
     max_depth: Annotated[int, Query(ge=1, le=100)] = 20,
+    session: AsyncSession = Depends(get_session),
 ):
     adapter = adapters[backend]
 
@@ -69,6 +74,7 @@ async def get_ancestors(
         "ancestors": await adapter.get_ancestors(
             lot_uuid,
             max_depth,
+            session=session,
         ),
     }
 
@@ -81,6 +87,7 @@ async def get_descendants(
     lot_uuid: str,
     backend: BackendName = BackendName.RECURSIVE_SQL,
     max_depth: Annotated[int, Query(ge=1, le=100)] = 20,
+    session: AsyncSession = Depends(get_session),
 ):
     adapter = adapters[backend]
 
@@ -90,5 +97,6 @@ async def get_descendants(
         "descendants": await adapter.get_descendants(
             lot_uuid,
             max_depth,
+            session=session,
         ),
     }

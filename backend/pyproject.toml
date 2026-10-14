@@ -8,6 +8,8 @@ dependencies = [
     "psycopg[binary]>=3.3.6",
     "pyarrow>=18.0",
     "python-dotenv>=1.2.3",
+    "sqlalchemy[asyncio]>=2.0.14",
+    "sqlmodel>=0.0.48",
 ]
 
 [dependency-groups]

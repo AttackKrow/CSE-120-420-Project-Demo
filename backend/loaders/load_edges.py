@@ -130,7 +130,11 @@ def postgres_row(row: dict[str, Any]) -> tuple[Any, ...]:
     return tuple(values)
 
 
-def load_base(base_path: Path, database_url: str) -> tuple[int, int]:
+def load_base(
+    base_path: Path,
+    database_url: str,
+    reset: bool = False,
+) -> tuple[int, int]:
     base_directory = resolve_base_directory(base_path)
     parquet_files = sorted(base_directory.rglob("*.parquet"))
     if not parquet_files:
@@ -145,16 +149,34 @@ def load_base(base_path: Path, database_url: str) -> tuple[int, int]:
     total_raw = 0
     total_loaded = 0
 
-    # The connection context makes the complete base load one transaction. If
-    # any file fails, PostgreSQL rolls the load back instead of leaving a
-    # partially populated base dataset.
-    with psycopg.connect(database_url) as connection, connection.cursor() as cursor:
+    # The reset and complete base load occur in one transaction. If loading
+    # fails, PostgreSQL restores the previous contents of both tables.
+    with (
+        psycopg.connect(database_url) as connection,
+        connection.cursor() as cursor,
+    ):
         cursor.execute(schema_path.read_text(encoding="utf-8"))
-        cursor.execute("SELECT EXISTS (SELECT 1 FROM genealogy_edges LIMIT 1)")
-        if cursor.fetchone()[0]:
-            raise RuntimeError(
-                "genealogy_edges is not empty; base loading requires a fresh table"
+
+        if reset:
+            cursor.execute(
+                "TRUNCATE TABLE genealogy_closure, genealogy_edges"
             )
+            print("Cleared genealogy_edges and genealogy_closure")
+        else:
+            cursor.execute(
+                """
+                SELECT
+                    EXISTS (SELECT 1 FROM genealogy_edges),
+                    EXISTS (SELECT 1 FROM genealogy_closure)
+                """
+            )
+            edges_not_empty, closure_not_empty = cursor.fetchone()
+
+            if edges_not_empty or closure_not_empty:
+                raise RuntimeError(
+                    "The genealogy tables are not empty. "
+                    "Use --reset to clear and reload them."
+                )
 
         for parquet_file in parquet_files:
             rows, raw_count = read_and_deduplicate(parquet_file)
@@ -166,9 +188,11 @@ def load_base(base_path: Path, database_url: str) -> tuple[int, int]:
             duplicate_count = raw_count - len(rows)
             total_raw += raw_count
             total_loaded += len(rows)
+
             print(
                 f"{parquet_file.name}: read {raw_count:,}, "
-                f"removed {duplicate_count:,}, loaded {len(rows):,}"
+                f"removed {duplicate_count:,}, "
+                f"loaded {len(rows):,}"
             )
 
     return total_loaded, total_raw - total_loaded
@@ -184,6 +208,14 @@ def main() -> None:
         default="smoke",
         help="Dataset beneath backend/out/ to load (default: smoke)",
     )
+    parser.add_argument(
+        "--reset",
+        action="store_true",
+        help=(
+            "Delete all existing edge and closure data before loading "
+            "the base dataset"
+        ),
+    )
     args = parser.parse_args()
 
     database_url = os.environ.get("DATABASE_URL")
@@ -191,7 +223,7 @@ def main() -> None:
         raise SystemExit("DATABASE_URL is not configured")
 
     dataset_directory = BACKEND_DIRECTORY / "out" / args.dataset
-    loaded, duplicates = load_base(dataset_directory, database_url)
+    loaded, duplicates = load_base(dataset_directory, database_url, reset=args.reset)
     print(f"Finished: loaded {loaded:,} events; removed {duplicates:,} duplicates")
 
 

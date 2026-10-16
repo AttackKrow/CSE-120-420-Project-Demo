@@ -77,7 +77,28 @@ uv run pytest
    uv run python -m loaders.load_closure
    ```
 
+7. Incrementally load the generated stream data:
+
+   ```powershell
+   # Loads every file under out/smoke/stream
+   uv run python -m loaders.load_stream_postgres
+   ```
+
+   To load the official stream data:
+
+   ```powershell
+   uv run python -m loaders.load_stream_postgres --dataset official
+   ```
+
+   To load only one stream file:
+
+   ```powershell
+   uv run python -m loaders.load_stream_postgres "path\to\hour.parquet"
+   ```
+
 The edge loader creates and populates `genealogy_edges`. The closure loader then derives all reachable ancestor–descendent relationships and stores their minimum distances in `genealogy_closure`.
+
+The stream loader inserts new events into `genealogy_edges` and incrementally updates `genealogy_closure`. Each stream file is processed in a single transaction, and previously loaded events are skipped, making files safe to rerun.
 
 Both tables must be empty before their respective base loaders are run. To intentionally rebuild only the closure table:
 
@@ -86,6 +107,18 @@ TRUNCATE TABLE genealogy_closure;
 ```
 
 Then rerun:
+
+```powershell
+uv run python -m loaders.load_closure
+```
+
+To clear the existing edge and closure data before reloading the base dataset:
+
+```powershell
+uv run python -m loaders.load_edges --reset
+```
+
+Afterward, rerun:
 
 ```powershell
 uv run python -m loaders.load_closure

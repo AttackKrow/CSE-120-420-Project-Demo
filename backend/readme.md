@@ -152,4 +152,25 @@ uv run python -m loaders.load_closure
    uv run python -m loaders.load_neo4j --dataset official
    ```
 
+5. Incrementally load the generated stream data:
+
+   ```powershell
+   # Loads every file under out/smoke/stream
+   uv run python -m loaders.load_stream_neo4j
+   ```
+
+   To load the official stream data:
+
+   ```powershell
+   uv run python -m loaders.load_stream_neo4j --dataset official
+   ```
+
+   To load only one stream file:
+
+   ```powershell
+   uv run python -m loaders.load_stream_neo4j "path\to\hour.parquet"
+   ```
+
 The Neo4j loader reads the same files as the edge loader and removes duplicates the same way, so both databases hold the same genealogy. Each lot state becomes a `Lot` node, carrying the details of the event that produced it, and each input-to-output pair becomes a `USED_IN` relationship. Neo4j must be empty before loading; add `--wipe` to delete everything in it first.
+
+The stream loader applies each stream file in a single transaction, using the same Cypher as the base loader. Nothing needs recomputing afterwards, since Neo4j follows the new relationships at query time. Already-loaded events are merged rather than duplicated, so files are safe to rerun. It prints how long each file took, for comparing ingestion with PostgreSQL.

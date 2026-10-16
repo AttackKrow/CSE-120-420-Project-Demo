@@ -112,6 +112,18 @@ Then rerun:
 uv run python -m loaders.load_closure
 ```
 
+To clear the existing edge and closure data before reloading the base dataset:
+
+```powershell
+uv run python -m loaders.load_edges --reset
+```
+
+Afterward, rerun:
+
+```powershell
+uv run python -m loaders.load_closure
+```
+
 ## Neo4j Setup
 
 1. Install [Neo4j Desktop](https://neo4j.com/download/), create a local instance, set its password, and start it.
